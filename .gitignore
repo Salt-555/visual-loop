@@ -1,0 +1,5 @@
+# Visual-Loop artifacts — never commit screenshots or iteration records
+references/visual-loop/
+*.png
+*.jpg
+*.jpeg
