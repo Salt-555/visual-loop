@@ -1,7 +1,7 @@
 ---
 name: visual-loop
 description: "Visual-Loop (VL): critique-driven visual iteration with NO reference images — the critic judges the target's own screenshot on its visual merits."
-version: 1.2.1
+version: 1.3.0
 author: ALLMIND
 license: MIT
 related_skills: [headless-visual-capture, visual-tdd-patterns, visual-reference-loop]
@@ -139,7 +139,7 @@ If the merged target fails to run, stop the iteration and use a fix worker first
 After the verdict is recorded and the ledger written, remove every implementation worktree created for that iteration and delete its merged branch:
 
 ```bash
-git worktree remove --force /path/to/neon-protocol-worktrees/<iteration-worktree>
+git worktree remove --force /path/to/<project>-worktrees/<iteration-worktree>
 git branch -d <branch-name>
 ```
 

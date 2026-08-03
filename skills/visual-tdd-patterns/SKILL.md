@@ -1,7 +1,7 @@
 ---
 name: visual-tdd-patterns
 description: "TDD for rendering features. Extract pure data, test those."
-version: 1.0.0
+version: 1.1.0
 metadata:
   hermes:
     tags: [tdd, testing, visual, rendering, threejs, particles, vitest]
@@ -74,7 +74,7 @@ function renderBlood(data) {
 When a visual slice ships with an exact contract (colors, opacities, geometry numbers fixed by a critic or spec), the pure descriptor module IS the contract. Test it three ways:
 
 1. **Exact values** — assert every contract number with `toBe`: `expect(pv.bodyColor).toBe(0xdd4433)`, `expect(pv.ring.outer).toBe(0.62)`. Loose matchers (ranges on colors, etc.) let contract drift through silently.
-2. **Identity reads** — assert the options actually differ from each other: `expect(ronin.bodyColor).not.toBe(netrunner.bodyColor)`. Catches a descriptor that collapsed into one hardcoded option.
+2. **Identity reads** — assert the options actually differ from each other: `expect(optionA.bodyColor).not.toBe(optionB.bodyColor)`. Catches a descriptor that collapsed into one hardcoded option.
 3. **Range sanity** — geometry/opacity bounds: `0 < ring.inner < ring.outer < 1`, opacities in `(0,1]`, emissive intensity in `(0,1)`. Catches typos like a 1.5 opacity.
 
 Expected RED for a brand-new module is `Cannot find module '../src/x.js'` — that IS the red; don't chase it, implement the module and re-run the focused test.
@@ -86,22 +86,18 @@ Flat ground markers added to a player/entity group:
 - Ring: `RingGeometry(inner, outer, segments)`; glow: `CircleGeometry(radius, segments)`.
 - Both need `rotation.x = -Math.PI/2` to lie flat — apply it even when the contract only says "ground disc".
 - Stack with small y offsets (e.g. ring y=0.02, glow y=0.015) and `depthWrite: false` to avoid z-fighting with the floor.
-- `MeshBasicMaterial` with `toneMapped: false` for UI-style markers — cheap on Pi-class GPUs, needs no light.
+- `MeshBasicMaterial` with `toneMapped: false` for UI-style markers — cheap on low-end GPUs, needs no light.
 - Don't set `castShadow` on them (MeshBasic can't cast; keep them out of the shadow pass).
-
-Worked example with full contract values and wiring: `references/neon-protocol-player-visuals.md`.
 
 ### Grid layout fixtures (tile maps, adjacency edges)
 
 For modules that walk a tile grid (`grid[y][x]`, WALL=0/FLOOR=1/DOOR=2) and emit one descriptor per wall→floor adjacency edge:
 
-- **Hand-derive one fixture cell-by-cell BEFORE writing expectations.** Grid transposition is the #1 source of false REDs: expectations with row/column swapped (`tx`↔`tz`), or n↔s / e↔w edge names swapped. When RED output looks like your expected set with coordinates or directions transposed, the module is usually RIGHT and the fixture is wrong — verify the module's semantics against the spec contract line by line before "fixing" the implementation. This session burned two RED rounds this exact way; the module never changed.
+- **Hand-derive one fixture cell-by-cell BEFORE writing expectations.** Grid transposition is the #1 source of false REDs: expectations with row/column swapped (`tx`↔`tz`), or n↔s / e↔w edge names swapped. When RED output looks like your expected set with coordinates or directions transposed, the module is usually RIGHT and the fixture is wrong — verify the module's semantics against the spec contract line by line before "fixing" the implementation. A common failure mode: two RED rounds burned this exact way while the module was never the problem.
 - **Edge name = direction FROM the emitting tile TO the neighbor** — so a wall on the room's north row (y=0) emits `'s'` (floor below), a west-column wall (x=0) emits `'e'`. Non-wall neighbors include doors: treat any non-WALL tile as a junction.
 - **Assert adjacency sets, not arrays**: build a key `` `${t.tx},${t.tz}:${t.edge}` `` and compare `new Set(trims.map(key))` to an expected Set. Order-independent, and the vitest diff prints both sets readably.
 - **Guard before destructuring**: `export function f(options) { const { mapData } = options || {}; ... }`. Destructuring the argument directly crashes on `f(null)` with `Cannot destructure property 'mapData' of 'object null'`.
 - Keep the neighbor sweep order fixed (n, e, s, w) so output is deterministic; assert with `expect(f(a)).toEqual(f(a))`.
-
-Worked example with fixtures, edge tables, and both RED rounds: `references/neon-protocol-wall-trim.md`.
 
 ### InstancedMesh for many identical descriptors (three.js r128)
 
@@ -115,7 +111,7 @@ When a descriptor emits dozens/hundreds of same-shape markers (wall trims, baseb
 
 ### Baked emissive surfaces (luminance-band spec checks)
 
-When the slice is about material presence — neon spill, glow, surface separation from the background — bake it into `MeshStandardMaterial` via `emissive` + `emissiveIntensity` instead of adding point lights. Emissive is free on Pi-class GPUs (no light cost, no shadow pass, no per-light count). Lock the no-new-lights constraint by re-asserting it in the same slice's tests: fixture count unchanged AND `maxDynamicPointLights` unchanged.
+When the slice is about material presence — neon spill, glow, surface separation from the background — bake it into `MeshStandardMaterial` via `emissive` + `emissiveIntensity` instead of adding point lights. Emissive is free on low-end GPUs (no light cost, no shadow pass, no per-light count). Lock the no-new-lights constraint by re-asserting it in the same slice's tests: fixture count unchanged AND `maxDynamicPointLights` unchanged.
 
 Then prove the surfaces actually read above the background WITHOUT rendering:
 
@@ -123,23 +119,19 @@ Then prove the surfaces actually read above the background WITHOUT rendering:
 - Reproduce MeshStandardMaterial's additive emissive math in plain numbers: `final = base + channels(emissive) * emissiveIntensity` (emissive hex → `[r,g,b]` via `(hex>>16)&0xff, (hex>>8)&0xff, hex&0xff`).
 - Convert to luminance with constant weights `0.2126R + 0.7152G + 0.0722B`, one band per surface plus a measured void/background band as a fixed constant (e.g. `VOID_LUMINANCE = 14`).
 - Assert ordering invariants, not exact band values: `wall > floor + 6`, `floor > void + 5`, dark-mood caps (`wall < 45`, `floor < 30`), and hue-family checks (`b > r` per band). Exact `toEqual` on the authored surface values still catches contract drift; the band invariants catch separation collapse that exact values can't (they encode the *visual* guarantee: materials read above the void and above each other).
-- Sanity-check the math by hand once before writing expectations (expected floor ≈ 22.95, wall ≈ 32.46 vs void 14) so a false RED is caught before touching the implementation.
+- Sanity-check the math by hand once before writing expectations so a false RED is caught before touching the implementation.
 
 Renderer wiring: in `buildMap`, materials read `visualRig.surfaces.wall.emissive` / `.emissiveIntensity` directly — the rig is a module-level `let` in the same IIFE closure, so no plumbing needed. This wiring is not TDD-able; the pure band function IS the contract.
-
-Worked example with contract values and band math: `references/neon-protocol-baked-neon-spill.md`.
 
 ### Cross-seam luminance guards (fixture vs player anchor)
 
 When a slice's thesis is "the player must win the frame" — the player's ground anchor must outshine the environment's practical pools — prove it WITHOUT rendering: add a pure guard export to the rig module, `fixturePeakLuminance({color, intensity}) = luminance(hex) * intensity` (constants only, no allocation: inline channel extraction and the 0.2126/0.7152/0.0722 weights rather than reusing array-allocating helpers), then assert `fixturePeakLuminance(violet) < luminance(playerGlowHex)` with the luminance math reproduced inline in the test.
 
-Pitfall — the guard is usually FIXTURE-SPECIFIC, not "any practical pool": the critic's rationale wording may overstate. Hand-compute peak luminance for EVERY fixture before writing the expectation (violet 0x795cff×0.45 ≈ 49.5, cyan ×2.2 ≈ 430, magenta ×1.45 ≈ 155, amber ×2.4 ≈ 410 vs player 0xff3344 ≈ 95.6). Only the depth pool drops below the anchor — the focal/rim practicals are SUPPOSED to outshine, so a loop over all fixtures fails by design. Also verify the OLD value would have failed (violet ×1.1 ≈ 121 > 95.6): that proves the guard is meaningful (RED before the flip, GREEN after).
-
-Worked example with contract, RED/GREEN evidence, and guard math: `references/neon-protocol-player-wins-frame.md`.
+Pitfall — the guard is usually FIXTURE-SPECIFIC, not "any practical pool": the critic's rationale wording may overstate. Hand-compute peak luminance for EVERY fixture before writing the expectation. Often only one fixture (e.g. a depth/ambient pool) drops below the anchor — the focal/rim practicals are SUPPOSED to outshine, so a loop over all fixtures fails by design. Also verify the OLD value would have failed: that proves the guard is meaningful (RED before the flip, GREEN after).
 
 ### Critic-approved slice handoff loop
 
-The neon-protocol iteration loop ships visual slices as scoped TDD commits. The sequence that satisfies the handoff: (1) failing vitest for the new pure module — capture the RED error text verbatim; (2) implement module + renderer wiring — capture GREEN; (3) full `npm test`; (4) `npm run smoke` (headless chromium: real class boot, bridge, canvas, error-free frames — it actually runs buildMap, so broken renderer wiring fails HERE, which pure tests can't catch); (5) `git add` ONLY the slice's files (`src/x.js`, `tests/x.test.js`, `index.html`) — verify scope with `git status --short` and `git show --name-only HEAD` before and after commit; (6) report commit hash, changed files, RED/GREEN evidence, test count, smoke result, and deviations from the contract.
+The visual-loop iteration loop ships visual slices as scoped TDD commits. The sequence that satisfies the handoff: (1) failing vitest for the new pure module — capture the RED error text verbatim; (2) implement module + renderer wiring — capture GREEN; (3) full `npm test`; (4) `npm run smoke` (headless chromium: real class boot, bridge, canvas, error-free frames — it actually runs buildMap, so broken renderer wiring fails HERE, which pure tests can't catch); (5) `git add` ONLY the slice's files (`src/x.js`, `tests/x.test.js`, `index.html`) — verify scope with `git status --short` and `git show --name-only HEAD` before and after commit; (6) report commit hash, changed files, RED/GREEN evidence, test count, smoke result, and deviations from the contract.
 
 ## Vitest / Rolldown Parser Quirks (v4.x)
 
@@ -167,7 +159,7 @@ const projData = window.CV.createEnemyProjectile(fromPos, targetPos, damage);
 </script>
 ```
 
-**CRITICAL**: This requires serving over HTTP (`npx http-server -p 8080`), NOT `file://`. ES module imports fail silently on the file protocol — no console error, just a blank canvas. See `references/neon-protocol-combat-feedback.md` for the full debugging log of this issue.
+**CRITICAL**: This requires serving over HTTP (`npx http-server -p 8080`), NOT `file://`. ES module imports fail silently on the file protocol — no console error, just a blank canvas.
 
 ### Module Bridge Readiness Gate
 
@@ -204,7 +196,7 @@ Generated-map decor must be treated as map-owned rather than scene-global. A det
 
 Do not instantiate map-dependent practical lights or prop layouts in generic scene initialization at arbitrary coordinates. They illuminate empty world space, drift on larger rounds, and accumulate across rebuilds.
 
-For Pi-class GPUs, make the performance contract explicit: cap light/decoration counts, share static geometry/materials, and set version-sensitive renderer parameters explicitly (for example `PointLight` decay) instead of trusting defaults. A point-light cap is whole-scene policy: audit every `new THREE.PointLight`, including transient muzzle flashes, hits, and effects. If the environment owns the complete budget, use `MeshBasicMaterial` muzzle glows, particles, and tracers for combat feedback instead of temporary point lights; encode a zero transient-light allowance in the pure lighting descriptor and test it. Avoid composer, bloom, render targets, per-prop lights, and dynamic texture work unless profiling proves the budget.
+For low-end GPUs, make the performance contract explicit: cap light/decoration counts, share static geometry/materials, and set version-sensitive renderer parameters explicitly (for example `PointLight` decay) instead of trusting defaults. A point-light cap is whole-scene policy: audit every `new THREE.PointLight`, including transient muzzle flashes, hits, and effects. If the environment owns the complete budget, use `MeshBasicMaterial` muzzle glows, particles, and tracers for combat feedback instead of temporary point lights; encode a zero transient-light allowance in the pure lighting descriptor and test it. Avoid composer, bloom, render targets, per-prop lights, and dynamic texture work unless profiling proves the budget.
 
 ## Browser Verification Gate
 

@@ -1,4 +1,4 @@
-// Headless capture worker template (verified on Pi 5 ARM64 + headless Chromium).
+// Headless capture worker template (playwright-core + system Chromium).
 // Copy, then set: ROOT, BOOT_URL, STATE_CHECK, OUT (and optionally VIEWPORT).
 // Run: node capture-worker.mjs
 // Serves ROOT over node http with correct content types, boots via BOOT_URL,
@@ -10,8 +10,8 @@ import { extname, normalize, resolve, sep, dirname } from 'node:path';
 import { deflateSync, inflateSync } from 'node:zlib';
 import { chromium } from 'playwright-core';
 
-const ROOT = process.env.ROOT || '/home/salt/projects/neon-protocol';
-const BOOT_URL = process.env.BOOT_URL || '/?smoke=ronin'; // app's deterministic boot hook
+const ROOT = process.env.ROOT || process.cwd();
+const BOOT_URL = process.env.BOOT_URL || '/'; // app's deterministic boot hook
 const STATE_CHECK = process.env.STATE_CHECK || ''; // optional: JS expr evaluated until truthy
 const OUT = process.env.OUT || '/tmp/target-before.png';
 const VIEWPORT = JSON.parse(process.env.VIEWPORT || '[1600,900]');

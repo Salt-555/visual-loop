@@ -40,9 +40,9 @@ cp skills/visual-loop/SKILL.md ~/.hermes/skills/software-development/visual-loop
 
 ## Bundle contents
 
-- `skills/visual-loop/` — Visual-Loop (VL) v1.2.1, the critique-driven loop
-- `skills/headless-visual-capture/` — v1.0.0: verified headless screenshot recipe (Playwright + system Chromium, non-blank pixel verification, capture template)
-- `skills/visual-tdd-patterns/` — v1.0.0: pure-data/descriptor seam TDD for rendering features
+- `skills/visual-loop/` — Visual-Loop (VL) v1.3.0, the critique-driven loop
+- `skills/headless-visual-capture/` — v1.1.0: headless screenshot recipe (Playwright + system Chromium, non-blank pixel verification, capture template)
+- `skills/visual-tdd-patterns/` — v1.1.0: pure-data/descriptor seam TDD for rendering features
 - `skills/visual-reference-loop/` — v1.1.0: the reference-driven sibling (VRL)
 
 ## License
