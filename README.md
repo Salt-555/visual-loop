@@ -25,18 +25,25 @@ The loop can only leave the target equal-or-better than it found it:
 
 ## Install (Hermes Agent)
 
+The full bundle (visual-loop + companion skills) is in `skills/`. Install all of them at once:
+
+```bash
+cp -r skills/* ~/.hermes/skills/software-development/
+```
+
+Or install just Visual-Loop:
+
 ```bash
 mkdir -p ~/.hermes/skills/software-development/visual-loop
 cp SKILL.md ~/.hermes/skills/software-development/visual-loop/
 ```
 
-Or via `hermes` skill management if available.
+## Bundle contents
 
-## Companion skills
-
-- `headless-visual-capture` — headless screenshot recipe (Playwright + system Chromium, non-blank verification)
-- `visual-tdd-patterns` — pure-data/descriptor seam TDD for rendering features
-- `visual-reference-loop` — the reference-driven sibling (VRL)
+- `SKILL.md` — Visual-Loop (VL) v1.2.1, the critique-driven loop
+- `skills/headless-visual-capture/` — v1.0.0: verified headless screenshot recipe (Playwright + system Chromium, non-blank pixel verification, capture template)
+- `skills/visual-tdd-patterns/` — v1.0.0: pure-data/descriptor seam TDD for rendering features
+- `skills/visual-reference-loop/` — v1.1.0: the reference-driven sibling (VRL)
 
 ## License
 

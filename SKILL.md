@@ -1,7 +1,7 @@
 ---
 name: visual-loop
 description: "Visual-Loop (VL): critique-driven visual iteration with NO reference images — the critic judges the target's own screenshot on its visual merits."
-version: 1.2.0
+version: 1.2.1
 author: ALLMIND
 license: MIT
 related_skills: [headless-visual-capture, visual-tdd-patterns, visual-reference-loop]
@@ -36,6 +36,7 @@ Discover the actual test command, runtime command, rendering/UI architecture, de
 - Do not run implementation workers on overlapping files. If the work converges on one entry file, use one worker.
 - No merge before independent review approval.
 - Do not claim success without a fresh after-merge capture from the merged target branch.
+- Clean up implementation worktrees after every merge: each leftover worktree carries its own `node_modules` (worktrees share `.git` but NOT `node_modules`), so every stale worktree is a full duplicate install. Remove the worktree and delete the merged branch once the verdict is recorded.
 - The merged tree must never end an iteration visually worse than it started. A `REGRESSION` verdict means revert first, restore and confirm the baseline, then **continue** the loop — never start the next iteration on a regressed tree.
 - Never judge an after-capture against anything but the iteration baseline (see Regression & no-gain policy).
 
@@ -132,6 +133,20 @@ For approved work:
    - `REGRESSION` — revert immediately, recapture to confirm the baseline is restored, record it, then continue to the next iteration from the restored baseline. Permanent stop only if this is the second `REGRESSION` of the loop.
 
 If the merged target fails to run, stop the iteration and use a fix worker first — a failing merge is not yet a visual verdict. Never replace a working artifact with plausible prose.
+
+### 7. Worktree cleanup (mandatory)
+
+After the verdict is recorded and the ledger written, remove every implementation worktree created for that iteration and delete its merged branch:
+
+```bash
+git worktree remove --force /path/to/neon-protocol-worktrees/<iteration-worktree>
+git branch -d <branch-name>
+```
+
+- Only delete branches that are actually merged into the target branch (`git branch -d` refuses otherwise).
+- For an unmerged/reverted iteration whose work might be worth keeping, remove the worktree directory (reclaims the duplicate install) but keep the branch ref — the commit lives in `.git` either way.
+- Never remove the primary worktree or any worktree another worker is actively using.
+- Verify after cleanup: `git worktree list` shows only the primary worktree plus any actively-used ones.
 
 ### 6. Parent ledger
 
